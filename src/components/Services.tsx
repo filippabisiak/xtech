@@ -19,7 +19,7 @@ export function Services() {
       const top = section.getBoundingClientRect().top
       const entered = top < window.innerHeight * 0.78
       const pinned = top <= 12
-      section.classList.toggle('is-in', reduce.matches || entered)
+      if (reduce.matches || entered) section.classList.add('is-in')
       section.classList.toggle('is-pinned', reduce.matches || pinned)
     }
     show()

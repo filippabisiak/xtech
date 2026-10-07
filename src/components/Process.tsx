@@ -162,9 +162,13 @@ export function Process() {
     if (!section || !stage || !title || !svg || !guide || !coreGroup || !glowGroup || !tip) return
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const stack = window.matchMedia('(max-width: 860px)')
+    const stacked = () => window.innerWidth <= 860 || stack.matches
     let frame = 0
+    const seen = new Set<ProcessId>()
 
     const layout = () => {
+      if (stacked()) return null
       const stageBox = stage.getBoundingClientRect()
       if (!stageBox.width || !stageBox.height) return null
 
@@ -217,7 +221,8 @@ export function Process() {
       return { total, segments, stops: marks }
     }
 
-    let geom = layout()
+    let geom = stacked() ? null : layout()
+    let maxProgress = 0
 
     const label = title.querySelector<HTMLElement>('.route-title-text')
     if (label) {
@@ -228,10 +233,40 @@ export function Process() {
       if (!label) return
       const top = section.getBoundingClientRect().top
       const entered = top < window.innerHeight * 0.72
-      label.classList.toggle('is-in', reduce.matches || entered)
+      if (reduce.matches || entered) label.classList.add('is-in')
+    }
+
+    const clearStopPins = () => {
+      for (const id of order) {
+        const stop = stage.querySelector<HTMLElement>(`[data-id="${id}"]`)
+        if (!stop) continue
+        stop.style.left = ''
+        stop.style.top = ''
+      }
+    }
+
+    const revealStack = () => {
+      const on = stacked()
+      section.classList.toggle('is-stack', on)
+      if (!on) return false
+      clearStopPins()
+      showTitle()
+      for (const id of order) {
+        const el = stage.querySelector(`[data-id="${id}"]`)
+        if (!(el instanceof HTMLElement)) continue
+        if (reduce.matches || el.getBoundingClientRect().top < window.innerHeight * 0.84) seen.add(id)
+      }
+      const next = order.filter((id) => seen.has(id))
+      const key = next.join(',')
+      if (key !== reachedKey.current) {
+        reachedKey.current = key
+        setReached(next)
+      }
+      return true
     }
 
     const draw = () => {
+      if (revealStack()) return
       showTitle()
       if (!geom) geom = layout()
       if (!geom) return
@@ -240,7 +275,9 @@ export function Process() {
       const pinHeight = pin?.offsetHeight ?? window.innerHeight
       const travel = Math.max(section.offsetHeight - pinHeight, 1)
       const scrolled = Math.min(travel, Math.max(0, -top))
-      const progress = reduce.matches ? 1 : Math.min(1, scrolled / (travel * 0.62))
+      const live = reduce.matches ? 1 : Math.min(1, scrolled / (travel * 0.62))
+      maxProgress = Math.max(maxProgress, live)
+      const progress = maxProgress
       const shown = progress * geom.total
       for (const seg of geom.segments) {
         const visible = Math.min(seg.len, shown - seg.start)
@@ -274,10 +311,15 @@ export function Process() {
     }
 
     const onScroll = () => {
+      if (stacked()) return
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(draw)
     }
     const onResize = () => {
+      if (stacked()) {
+        geom = null
+        return
+      }
       geom = layout()
       draw()
     }
@@ -285,6 +327,7 @@ export function Process() {
     draw()
     window.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', onResize)
+    stack.addEventListener('change', onResize)
     const observer = new ResizeObserver(onResize)
     observer.observe(stage)
     reduce.addEventListener('change', onResize)
@@ -294,9 +337,46 @@ export function Process() {
       cancelAnimationFrame(frame)
       window.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onResize)
+      stack.removeEventListener('change', onResize)
       observer.disconnect()
       reduce.removeEventListener('change', onResize)
       void fonts
+    }
+  }, [lang])
+
+  useLayoutEffect(() => {
+    const section = sectionRef.current
+    if (!section) return
+    const stack = window.matchMedia('(max-width: 860px)')
+    const seen = new Set<ProcessId>()
+    const tick = () => {
+      if (window.innerWidth > 860 && !stack.matches) {
+        section.classList.remove('is-stack')
+        return
+      }
+      section.classList.add('is-stack')
+      for (const id of order) {
+        const el = section.querySelector(`[data-id="${id}"]`)
+        if (!(el instanceof HTMLElement)) continue
+        el.style.left = ''
+        el.style.top = ''
+        if (el.getBoundingClientRect().top < window.innerHeight * 0.72) seen.add(id)
+      }
+      const next = order.filter((id) => seen.has(id))
+      const key = `stack:${next.join(',')}`
+      if (key !== reachedKey.current) {
+        reachedKey.current = key
+        setReached(next)
+      }
+    }
+    tick()
+    window.addEventListener('scroll', tick, { passive: true })
+    window.addEventListener('resize', tick)
+    stack.addEventListener('change', tick)
+    return () => {
+      window.removeEventListener('scroll', tick)
+      window.removeEventListener('resize', tick)
+      stack.removeEventListener('change', tick)
     }
   }, [lang])
 

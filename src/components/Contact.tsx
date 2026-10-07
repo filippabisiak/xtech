@@ -65,7 +65,7 @@ export function Contact() {
     const show = () => {
       const top = section.getBoundingClientRect().top
       const entered = top < window.innerHeight * 0.78
-      section.classList.toggle('is-in', reduce.matches || entered)
+      if (reduce.matches || entered) section.classList.add('is-in')
     }
     show()
     window.addEventListener('scroll', show, { passive: true })

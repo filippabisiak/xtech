@@ -24,7 +24,7 @@ const items = [
 
 export default function TailwindImageAccordion() {
   return (
-    <div className="group mx-auto mb-10 mt-3 flex w-[80%] justify-center gap-2 max-md:flex-col">
+    <div className="about-people group mx-auto mb-10 mt-3 flex w-[80%] justify-center gap-2 max-md:flex-col">
       {items.map((item) => (
         <article
           key={item.id}

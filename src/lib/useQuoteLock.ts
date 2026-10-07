@@ -49,12 +49,6 @@ export function useQuoteLock(
       return node.getBoundingClientRect().bottom <= 2
     }
 
-    const prevMostlyBack = () => {
-      const node = prev()
-      if (!node) return false
-      return node.getBoundingClientRect().bottom > window.innerHeight * 0.55
-    }
-
     const lock = (onSettled: () => void) => {
       if (getDriftHref() && getDriftHref() !== `#${selfId}`) return
       unlock()
@@ -160,13 +154,6 @@ export function useQuoteLock(
       lock(startWords)
     }
 
-    const reset = () => {
-      clearTimers()
-      unlock()
-      phase = 'idle'
-      section.classList.remove('is-playing', 'is-done')
-    }
-
     const markDone = () => {
       clearTimers()
       unlock()
@@ -207,10 +194,7 @@ export function useQuoteLock(
 
       if (phase === 'locking' || phase === 'playing' || isDrifting()) return
 
-      if (phase === 'done') {
-        if (prevMostlyBack()) reset()
-        return
-      }
+      if (phase === 'done') return
 
       if (crossed || (prevGone() && quoteIntersecting())) play()
       else if (prevGone() && !quoteIntersecting()) markDone()
@@ -221,8 +205,7 @@ export function useQuoteLock(
       if (!(link instanceof HTMLAnchorElement)) return
       const href = link.getAttribute('href')
       if (!href || href === '#') return
-      if (resetHrefs.includes(href)) reset()
-      else if (href !== `#${selfId}`) markDone()
+      if (href !== `#${selfId}`) markDone()
     }
 
     onTick()
